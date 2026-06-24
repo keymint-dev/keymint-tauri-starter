@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Tauri License Starter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f5f5; }
+    .card { background: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); width: 400px; }
+    h2 { margin-bottom: .5rem; }
+    p { color: #666; font-size: .875rem; margin-bottom: 1rem; }
+    input { width: 100%; padding: .5rem; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: .75rem; }
+    button { width: 100%; padding: .5rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:disabled { opacity: .6; }
+    .status { margin-top: .75rem; font-size: .8rem; text-align: center; }
+    .ok { color: #16a34a; } .err { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Activate License</h2>
+    <p>Enter your license key to unlock the app.</p>
+    <input id="key" type="text" placeholder="KM-XXXX-XXXX-XXXX" maxlength="64" />
+    <button id="btn">Activate</button>
+    <div id="status" class="status"></div>
+  </div>
+  <script type="module">
+    import { invoke } from 'https://esm.sh/@tauri-apps/api@2/core';
+
+    btn.onclick = async () => {
+      const key = key.value.trim();
+      if (!key) return;
+      btn.disabled = true;
+      status.textContent = 'Activating...';
+      status.className = 'status';
+      try {
+        const msg = await invoke('activate_license', { licenseKey: key });
+        status.textContent = msg;
+        status.className = 'status ok';
+      } catch (e) {
+        status.textContent = e;
+        status.className = 'status err';
+      } finally { btn.disabled = false; }
+    };
+  </script>
+</body>
+</html>

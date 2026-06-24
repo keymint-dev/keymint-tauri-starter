@@ -1,0 +1,12 @@
+{
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../src"
+  },
+  "app": {
+    "title": "Tauri License Starter",
+    "windows": [
+      { "title": "Tauri License Starter", "width": 480, "height": 360 }
+    ]
+  }
+}
