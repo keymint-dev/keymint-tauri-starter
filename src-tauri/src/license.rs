@@ -3,8 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 
 const API_BASE: &str = "https://api.keymint.dev";
-const CLIENT_API_KEY: &str = env!("KEYMINT_CLIENT_API_KEY");
-const PRODUCT_ID: &str = env!("KEYMINT_PRODUCT_ID");
+const CLIENT_API_KEY: &str = option_env!("KEYMINT_CLIENT_API_KEY").unwrap_or("");
+const PRODUCT_ID: &str = option_env!("KEYMINT_PRODUCT_ID").unwrap_or("");
 
 #[derive(Deserialize)]
 struct ActivateRequest {
