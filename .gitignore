@@ -1,3 +1,6 @@
 node_modules/
 target/
 .env
+
+# Tauri build output
+src-tauri/gen/

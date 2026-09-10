@@ -3,10 +3,17 @@ use std::fs;
 use std::path::PathBuf;
 
 const API_BASE: &str = "https://api.keymint.dev";
-const CLIENT_API_KEY: &str = option_env!("KEYMINT_CLIENT_API_KEY").unwrap_or("");
-const PRODUCT_ID: &str = option_env!("KEYMINT_PRODUCT_ID").unwrap_or("");
+// option_env! in const context: match instead of unwrap_or (not const-stable).
+const CLIENT_API_KEY: &str = match option_env!("KEYMINT_CLIENT_API_KEY") {
+    Some(v) => v,
+    None => "",
+};
+const PRODUCT_ID: &str = match option_env!("KEYMINT_PRODUCT_ID") {
+    Some(v) => v,
+    None => "",
+};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct ActivateRequest {
     #[serde(rename = "productId")]
     product_id: String,
@@ -143,5 +150,99 @@ pub fn get_license_status() -> serde_json::Value {
             "licenseKey": mask_key(&state.license_key),
         }),
         None => serde_json::json!({ "activated": false, "licenseKey": null }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mask_key_hides_middle() {
+        assert_eq!(mask_key("AHTH3-8LRZD-SDXXH-LQBLN"), "AHTH••••QBLN");
+        assert_eq!(mask_key("short"), "••••");
+    }
+
+    fn live_creds() -> Option<(String, String, String)> {
+        let admin = std::env::var("KEYMINT_TEST_ADMIN_API_KEY").ok()?;
+        let product = std::env::var("KEYMINT_TEST_PRODUCT_ID").ok()?;
+        if admin.is_empty() || product.is_empty() || CLIENT_API_KEY.is_empty() {
+            return None;
+        }
+        let base = std::env::var("KEYMINT_TEST_BASE_URL")
+            .unwrap_or_else(|_| API_BASE.to_string());
+        Some((admin, product, base))
+    }
+
+    async fn admin_post(
+        client: &reqwest::Client,
+        base: &str,
+        admin: &str,
+        path: &str,
+        body: serde_json::Value,
+    ) -> serde_json::Value {
+        client
+            .post(format!("{}{}", base, path))
+            .header("Authorization", format!("Bearer {}", admin))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .expect("request failed")
+            .json()
+            .await
+            .expect("invalid json")
+    }
+
+    #[tokio::test]
+    async fn live_activate_deactivate_cycle() {
+        let Some((admin, product, base)) = live_creds() else {
+            println!("live credentials not set, skipping");
+            return;
+        };
+        let client = reqwest::Client::new();
+        let run = format!("tauri-{}", &uuid_simple());
+
+        let created = admin_post(
+            &client,
+            &base,
+            &admin,
+            "/key",
+            serde_json::json!({
+                "productId": product,
+                "maxActivations": "2",
+                "metadata": { "purpose": "tauri-starter-smoke", "runId": run },
+            }),
+        )
+        .await;
+        let key = created["key"].as_str().expect("no key returned").to_string();
+
+        let msg = activate_license(key.clone())
+            .await
+            .expect("activate failed");
+        assert!(!msg.is_empty());
+        assert!(is_activated());
+
+        deactivate_license().await.expect("deactivate failed");
+        assert!(!is_activated());
+
+        let blocked = admin_post(
+            &client,
+            &base,
+            &admin,
+            "/key/block",
+            serde_json::json!({ "productId": product, "licenseKey": key }),
+        )
+        .await;
+        assert_eq!(blocked["code"], 0);
+    }
+
+    fn uuid_simple() -> String {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        format!("{:x}", nanos)
     }
 }
