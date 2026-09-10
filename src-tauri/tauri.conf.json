@@ -1,4 +1,5 @@
 {
+  "identifier": "dev.keymint.tauri-license-starter",
   "build": {
     "devUrl": "http://localhost:1420",
     "frontendDist": "../src"
@@ -10,7 +11,6 @@
         "width": 480,
         "height": 360
       }
-    ],
-    "identifier": "dev.keymint.tauri-license-starter"
+    ]
   }
 }
