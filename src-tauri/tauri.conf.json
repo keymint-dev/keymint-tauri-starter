@@ -4,9 +4,12 @@
     "frontendDist": "../src"
   },
   "app": {
-    "title": "Tauri License Starter",
     "windows": [
-      { "title": "Tauri License Starter", "width": 480, "height": 360 }
+      {
+        "title": "Tauri License Starter",
+        "width": 480,
+        "height": 360
+      }
     ]
   }
 }
