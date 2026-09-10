@@ -3,10 +3,17 @@ use std::fs;
 use std::path::PathBuf;
 
 const API_BASE: &str = "https://api.keymint.dev";
-const CLIENT_API_KEY: &str = option_env!("KEYMINT_CLIENT_API_KEY").unwrap_or("");
-const PRODUCT_ID: &str = option_env!("KEYMINT_PRODUCT_ID").unwrap_or("");
+// option_env! in const context: match instead of unwrap_or (not const-stable).
+const CLIENT_API_KEY: &str = match option_env!("KEYMINT_CLIENT_API_KEY") {
+    Some(v) => v,
+    None => "",
+};
+const PRODUCT_ID: &str = match option_env!("KEYMINT_PRODUCT_ID") {
+    Some(v) => v,
+    None => "",
+};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct ActivateRequest {
     #[serde(rename = "productId")]
     product_id: String,
