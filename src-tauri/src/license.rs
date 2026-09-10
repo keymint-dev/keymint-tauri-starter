@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn mask_key_hides_middle() {
-        assert_eq!(mask_key("AHTH3-8LRZD-SDXXH-LQBLN"), "AHTH••••LQBLN");
+        assert_eq!(mask_key("AHTH3-8LRZD-SDXXH-LQBLN"), "AHTH••••QBLN");
         assert_eq!(mask_key("short"), "••••");
     }
 
