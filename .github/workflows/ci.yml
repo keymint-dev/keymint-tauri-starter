@@ -32,6 +32,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Lib tests only: the bin target needs full Tauri bundling
+      # (icons, frontend); packaging is verified by tauri build on release.
       - name: Run tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --lib
