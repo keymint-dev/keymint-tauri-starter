@@ -9,6 +9,8 @@ npm install
 npm run tauri dev
 ```
 
+The frontend is plain HTML in `src/`, served by Tauri straight from `frontendDist`. There is no separate dev server to start.
+
 Set your Keymint credentials as environment variables before building:
 
 ```bash
