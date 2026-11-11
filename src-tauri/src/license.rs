@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 
@@ -12,6 +13,45 @@ const PRODUCT_ID: &str = match option_env!("KEYMINT_PRODUCT_ID") {
     Some(v) => v,
     None => "",
 };
+
+/// Fixed, app-specific prefix mixed into the host ID hash. It keeps the raw OS
+/// machine ID off the wire and stops two apps on the same machine from
+/// reporting the same host ID. Changing it changes every install's host ID,
+/// so pick it once per app and keep it.
+const HOST_ID_PREFIX: &str = "keymint-tauri-starter:host-id:v1:";
+
+const DEVICE_ID_ERROR: &str =
+    "Couldn't read a device ID for this computer, so the license can't be activated or deactivated here.";
+
+/// Host ID sent to Keymint: lowercase hex SHA-256 of `HOST_ID_PREFIX` + the OS
+/// machine ID. That is 64 characters, the maximum the API accepts (1-64).
+///
+/// There is deliberately no shared fallback value: if the machine ID can't be
+/// read, the command fails with a clear error instead of every such machine
+/// sharing one activation slot.
+fn host_id() -> Result<String, String> {
+    let machine_id = machine_uid::get().map_err(|_| DEVICE_ID_ERROR.to_string())?;
+    host_id_from_machine_id(&machine_id)
+}
+
+fn host_id_from_machine_id(machine_id: &str) -> Result<String, String> {
+    let machine_id = machine_id.trim();
+    if machine_id.is_empty() {
+        return Err(DEVICE_ID_ERROR.to_string());
+    }
+    Ok(hash_machine_id(machine_id))
+    // To keep sending the raw OS machine ID instead (continuity for installs
+    // that activated before hashing was added), replace the line above with:
+    // Ok(machine_id.to_string())
+}
+
+fn hash_machine_id(machine_id: &str) -> String {
+    let digest = Sha256::new()
+        .chain_update(HOST_ID_PREFIX.as_bytes())
+        .chain_update(machine_id.as_bytes())
+        .finalize();
+    digest.iter().map(|b| format!("{:02x}", b)).collect()
+}
 
 #[derive(Serialize, Deserialize)]
 struct ActivateRequest {
@@ -77,7 +117,7 @@ fn mask_key(key: &str) -> String {
 
 #[tauri::command]
 pub async fn activate_license(license_key: String) -> Result<String, String> {
-    let host_id = machine_uid::get().unwrap_or_else(|_| "unknown-host".to_string());
+    let host_id = host_id()?;
 
     let client = reqwest::Client::new();
     let resp = client
@@ -110,7 +150,7 @@ pub async fn activate_license(license_key: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn deactivate_license() -> Result<String, String> {
     let state = read_state().ok_or("No license found")?;
-    let host_id = machine_uid::get().unwrap_or_else(|_| "unknown-host".to_string());
+    let host_id = host_id()?;
 
     let client = reqwest::Client::new();
     let resp = client
@@ -161,6 +201,38 @@ mod tests {
     fn mask_key_hides_middle() {
         assert_eq!(mask_key("AHTH3-8LRZD-SDXXH-LQBLN"), "AHTH••••QBLN");
         assert_eq!(mask_key("short"), "••••");
+    }
+
+    const SAMPLE_MACHINE_ID: &str = "4c4c4544-0042-3510-8051-b3c04f4e3532";
+
+    #[test]
+    fn host_id_is_prefixed_sha256_hex() {
+        let id = host_id_from_machine_id(SAMPLE_MACHINE_ID).unwrap();
+        assert_eq!(id.len(), 64);
+        assert!(id.chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c)));
+        assert!(!id.contains("4c4c4544"));
+        // Stable: surrounding whitespace from the OS doesn't change it.
+        assert_eq!(id, host_id_from_machine_id(&format!(" {}\n", SAMPLE_MACHINE_ID)).unwrap());
+        // The app prefix is part of the hash.
+        let unprefixed: String = Sha256::digest(SAMPLE_MACHINE_ID.as_bytes())
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+        assert_ne!(id, unprefixed);
+    }
+
+    #[test]
+    fn host_id_differs_per_machine() {
+        assert_ne!(
+            host_id_from_machine_id("machine-a").unwrap(),
+            host_id_from_machine_id("machine-b").unwrap()
+        );
+    }
+
+    #[test]
+    fn unreadable_machine_id_is_an_error_not_a_shared_fallback() {
+        assert_eq!(host_id_from_machine_id("").unwrap_err(), DEVICE_ID_ERROR);
+        assert_eq!(host_id_from_machine_id("  \n").unwrap_err(), DEVICE_ID_ERROR);
     }
 
     fn live_creds() -> Option<(String, String, String)> {
