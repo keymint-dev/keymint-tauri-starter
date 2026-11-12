@@ -24,8 +24,10 @@
     <button id="btn">Activate</button>
     <div id="status" class="status"></div>
   </div>
-  <script type="module">
-    import { invoke } from 'https://esm.sh/@tauri-apps/api@2/core';
+  <script>
+    // Tauri injects its API as window.__TAURI__ because tauri.conf.json sets
+    // app.withGlobalTauri. No remote code is loaded, so the app works offline.
+    const { invoke } = window.__TAURI__.core;
 
     const keyInput = document.getElementById('key');
     const statusEl = document.getElementById('status');
