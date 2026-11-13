@@ -23,7 +23,7 @@ npm run tauri dev
 
 | Variable | Description |
 |---|---|
-| `KEYMINT_CLIENT_API_KEY` | Client API key from [Keymint Dashboard](https://app.keymint.dev) |
+| `KEYMINT_CLIENT_API_KEY` | Client API key from the [Keymint dashboard](https://app.keymint.dev) |
 | `KEYMINT_PRODUCT_ID` | Your product ID |
 
 These are read at compile time via `option_env!()`. Set them before `cargo build` / `npm run tauri dev`.
@@ -34,8 +34,8 @@ These are read at compile time via `option_env!()`. Set them before `cargo build
 
 - **Rust license module** — activate, deactivate, status check via Keymint REST API
 - **Machine binding** — host ID derived from the OS machine ID (`machine-uid` crate), hashed before it is sent (see [Host ID](#host-id))
-- **Local persistence** — stores license state in `~/.local/share/tauri-license-starter/license.json`
-- **Activation UI** — simple HTML/JS frontend that calls Rust via Tauri `invoke()`
+- **Local persistence** — stores license state in `license.json` under the OS local data directory (see [License state file](#license-state-file))
+- **Activation UI** — plain HTML/JS frontend that calls Rust via Tauri `invoke()` from the `window.__TAURI__` global (`app.withGlobalTauri`), so no remote scripts are loaded and it works offline
 - **Key masking** — stored keys are masked when returned to the frontend
 
 ## Project Structure
@@ -60,6 +60,18 @@ These are read at compile time via `option_env!()`. Set them before `cargo build
 | `deactivate_license` | Deactivate the current license |
 | `is_activated` | Check if a valid license is stored |
 | `get_license_status` | Get masked key + activation state |
+
+## License state file
+
+The activation state is saved as `license.json` in a `tauri-license-starter` folder inside the OS local data directory (`dirs::data_local_dir()`):
+
+| OS | Path |
+|---|---|
+| Linux | `~/.local/share/tauri-license-starter/license.json` (or `$XDG_DATA_HOME/tauri-license-starter/`) |
+| macOS | `~/Library/Application Support/tauri-license-starter/license.json` |
+| Windows | `%LOCALAPPDATA%\tauri-license-starter\license.json` |
+
+Change the folder name in `license_file_path()` in `src-tauri/src/license.rs` to match your app.
 
 ## Host ID
 
